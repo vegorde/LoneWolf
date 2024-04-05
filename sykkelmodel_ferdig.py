@@ -7,11 +7,13 @@ import getpass
 import matplotlib.animation as animation
 from numpy import cos, sin, tan, pi
 
+
 TAU = 1 # tidskonstant for 1 ordens lavpass for force
 ZETA = 1 # demping for delta
 OMEGA = 1 # udempet svingefrekvens for andre ordens filter delta
-LEN = 1 #lengde fra hjul til hjul
-M = 375 #masse på LW
+LEN = 1 # lengde fra hjul til hjul
+M = 375 # masse på LW
+MOTORBREMS = 10 # [ns/m] ganget sammen med farten v utgjør dette en enkel tilmerming for motorbrems
 
 # Vektinger for kostnadsfunksjonen
 VEKTING_X = 1
@@ -29,7 +31,7 @@ ROBUSTNESS = 1
 STORE_SOLUTION = True
 
 # Grenser på inputs
-THROTTLE_LOW = -5000       # Throttle [?N?]
+THROTTLE_LOW = 0       # Throttle [?N?]
 THROTTLE_HIGH = 5000
 STEERING_RATE_LOW = -pi/4  # [?rad/s?]
 STEERING_RATE_HIGH = pi/4
@@ -90,7 +92,7 @@ x_d = v * cos(psi)
 y_d = v * sin(psi)
 psi_d = v/LEN * tan(delta)
 v_d = f/M
-f_d = 1/TAU * (-f + throttle)
+f_d = 1/TAU * (-f + throttle) - MOTORBREMS * v
 delta_d = delta_der
 delta_der_d = -2 * ZETA * OMEGA * delta_der - OMEGA**2 * delta + steering_rate
 
