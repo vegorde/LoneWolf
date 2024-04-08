@@ -25,10 +25,15 @@ D_THROTTLE_PUNISHMENT = 1e-10
 D_STEERING_PUNISHMENT = 1e-10
 
 # Mpc parametere
-PREDICTION_HORIZON = 30
+PREDICTION_HORIZON = 40
 TIME_STEP = 0.1
 ROBUSTNESS = 1
-STORE_SOLUTION = True
+STORE_SOLUTION = False
+
+# Solver parametere
+MAX_ITERATIONS = 10000
+ABS_TOL = 1e-6
+MAX_TIME = 0.07 # Dette holder oss innenfor 0.1 sekunder
 
 # Grenser på inputs
 THROTTLE_LOW = 0       # Throttle [?N?]
@@ -137,7 +142,14 @@ setup_mpc = {
     'n_robust': ROBUSTNESS,
     'store_full_solution': STORE_SOLUTION,
 }
-mpc.set_param(**setup_mpc)
+solver_options = {
+    'ipopt.max_iter': MAX_ITERATIONS,   # Maximum number of iterations for IPOPT
+    'ipopt.tol': ABS_TOL,        # Solver tolerance for IPOPT
+    'ipopt.max_cpu_time': MAX_TIME # Maximum CPU time limit in seconds for IPOPT
+}
+
+combined_params = {**setup_mpc, 'nlpsol_opts': solver_options}
+mpc.set_param(**combined_params)
 
 # Kostnadsfunksjon
 mterm = VEKTING_X * (x-x_ref)**2 + VEKTING_Y * (y-y_ref)**2 + VEKTING_V * (v-velocity_ref)**2
@@ -193,33 +205,24 @@ mpc.setup()
 simulator = do_mpc.simulator.Simulator(model)
 simulator.set_param(t_step = TIME_STEP)
 
-# configuring tvp igjen? 
-tvp_sim_template = simulator.get_tvp_template()
 
 def tvp_sim_fun(t_now):
     return tvp_sim_template
 
-simulator.set_tvp_fun(tvp_sim_fun)
-simulator.setup()
 
 
 # Initialverdier
 x0 = np.array([X0, Y0, PSI0, V0, F0, DELTA0, DELTA_D0]).reshape(-1,1)
-simulator.x0 = x0
 mpc.x0 = x0
 
 mpc.set_initial_guess()
 
-# RUNNING THE SIMULATOR WITH CONTROL
-simulator.reset_history()
-simulator.x0 = x0
 mpc.reset_history()
 
 
-X0, Y0, PSI0, V0, F0, DELTA0, DELTA_D0 = 0, 0, 0, 0, 0, 0, 0
 
 def simulate_step(X0, Y0, PSI0, V0, F0, DELTA0, DELTA_D0, throttle, steering_rate, dt):
-    for _ in range(1000):
+    for _ in range(100):
         x_d = V0 * np.cos(PSI0)
         y_d = V0 * np.sin(PSI0)
         psi_d = V0 / LEN * np.tan(DELTA0)
@@ -253,7 +256,7 @@ for i in range(N_STEPS):
     throttle_ = u0[0]
     steering_rate_ = u0[1]
     
-    x0 = simulate_step(X0_, Y0_, PSI0_, V0_, F0_, DELTA0_, DELTA_D0_, throttle_, steering_rate_, TIME_STEP/1000)
+    x0 = simulate_step(X0_, Y0_, PSI0_, V0_, F0_, DELTA0_, DELTA_D0_, throttle_, steering_rate_, TIME_STEP/100)
     states.append(x0)
     X0_, Y0_, PSI0_, V0_, F0_, DELTA0_, DELTA_D0_ = x0[0], x0[1], x0[2], x0[3], x0[4], x0[5], x0[6]
     xref = xref_list[i]
@@ -303,4 +306,5 @@ axs[2].set_ylabel('Velocity [m/s]')
 axs[2].legend()
 axs[2].grid(True)
 
+print(times)
 plt.show()
