@@ -6,6 +6,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Float32
 from rclpy.duration import Duration
+from geometry_msgs.msg import TwistWithCovarianceStamped, PoseWithCovarianceStamped
+from sensor_msgs.msg import NavSatFix
 
 from std_msgs.msg import Float32, Int64, Float64MultiArray
 
@@ -42,7 +44,9 @@ class mpc_ros_controller(Node):
       self.u2_publish_= self.create_publisher(Int64, '/lw_portenta_brake', 10)
       self.u3_publish_ = self.create_publisher(Int64, '/lw_portenta_steering', 10)     
 
-      self.states = self.create_subscription(Float64MultiArray, 'lw_states', self.update_states, 10)
+      self.xy = self.create_subscription(NavSatFix, '/vectornav/gnss', self.update_states_xy, 10)
+      self.psi = self.create_subscription(PoseWithCovarianceStamped, '/vectornav/pose', self.update_states_psi, 10)
+      self.v = self.create_subscription(TwistWithCovarianceStamped, '/vectornav/velocity_body', self.update_states_v, 10)
 
 
 
@@ -53,12 +57,16 @@ class mpc_ros_controller(Node):
 
       
 
-   def update_states(self, msg): 
-      self.x = msg.data[0]
-      self.y = msg.data[1]
-      self.psi = msg.data[2]
-      self.v = msg.data[3]
+   def update_states_xy(self, msg): 
+      self.x = msg.latitude
+      self.y = msg.longitude
+   
 
+   def update_states_psi(self, msg): 
+      self.psi = msg.pose.pose.position.z
+
+   def update_states_v(self, msg): 
+      self.v = msg.twist.twist.linear.x
 
 
    def generate_and_publish_inputs(self):
@@ -73,12 +81,10 @@ class mpc_ros_controller(Node):
       msg_u1.data = int(u_throttle)
       msg_u2.data = 0
       msg_u3.data = int(u_steering)
-      for _ in range(1000):
-         print(u)
       self.get_logger().info("Sending inputs")
       self.u1_publish_.publish(msg_u1)
       self.u2_publish_.publish(msg_u2)
-      self.u3_publish_.publish(msg_u3)   
+      self.u3_publish_.publish(msg_u3)
 
 
 

@@ -108,13 +108,15 @@ class MPC_Controller:
         yref_list = []
         vref_list = []
         for i in range(N_STEPS):
-            rotasjon = (4*np.pi)/N_STEPS
+            #rotasjon = (4*np.pi)/N_STEPS
             # Her generer vi input referanser, atm så er det en sirkel med radius *50* og *2* runder i vår simuleringstid
-            r = 50
-            xref_list.append(r*np.cos(i*rotasjon/4))
-            yref_list.append(r*np.sin(i*rotasjon/4))
+            #r = 50
+            #xref_list.append(r*np.cos(i*rotasjon/4))
+            #yref_list.append(r*np.sin(i*rotasjon/4))
+            #vref_list.append(0)
+            xref_list.append(15)
+            yref_list.append(15)
             vref_list.append(0)
-
 
 
         self.mpc = do_mpc.controller.MPC(model)
@@ -243,29 +245,20 @@ class MPC_Controller:
 
     #This function is a helper-function that takes in the 4 measured states, and updating with 
     def state_estimator(self, physical_states):
-        print("state estimator")
         x, y, psi, v = physical_states
-        print("1")
         dt = time.time() - self.previous_time
-        print("2")
         self.F_state += dt *( 1/self.TAU * (-self.F_state + self.u_1_state) - self.ENGINEBREAKS*v)
-        print("3")
         self.delta_state += dt*(self.delta_dot_state)
-        print("4")
         self.delta_dot_state += dt*(-2*self.ZETA*self.OMEGA * self.delta_dot_state - self.OMEGA**2 * self.delta_state + self.u_2_state )
-        print("5")
         self.previous_time = time.time()
 
-        print("1")
         return [x, y, psi, v, self.F_state, self.delta_state, self.delta_dot_state]
 
 
 
 
     def predict_step(self, physical_states):
-        print("predictor")
         x0_temp = self.state_estimator(physical_states)
-        print("kom du deg hit??????")
         print(x0_temp)
         x0_ = np.array(x0_temp)
         
@@ -275,5 +268,3 @@ class MPC_Controller:
         return [u[0], (1000*u[1])]
 
         
-
-
