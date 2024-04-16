@@ -2,7 +2,7 @@ for i in range(N_STEPS):
     t = i * T_STEPS
     if t < 20:
         # Infinity symbol
-        t = t * (2*np.pi) * 50/20 / (N_STEPS * self.T_STEPS)
+        t = t * (2*np.pi) * 50/19 / (N_STEPS * self.T_STEPS)
         a = 30
         self.xref_list.append(a * np.sin(t))
         self.yref_list.append(a/2 * np.sin(2*t))
