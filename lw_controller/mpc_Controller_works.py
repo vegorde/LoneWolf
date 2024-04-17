@@ -8,8 +8,8 @@ class MPC_Controller:
     def __init__(self): 
         # Constants for our model used in the mpc and state estimator
         self.TAU = 1                             # Time constant of the first order lowpassfilter used to shape the rise curve of throttle vs speed [s]
-        self.FILTER1 = 0.275/0.015 * 0.82        # Second order lowpassfilter used in calculating wheel angle from target wheel angle
-        self.FILTER2 = 1/0.015 * 1.1             # Still same filter, made to behave like a servo
+        self.OMEGA = 8.56                        # Second order lowpassfilter used in calculating wheel angle from target wheel angle
+        self.ZETA = 0.88                         # Still same filter, made to behave like a servo: Tune this with math if you're a nerd, else guess and check
         self.MASS = 375                          # Mass of LoneWolf [kg]
         self.L = 1.8                             # Lenght of wheelbase of LoneWolf [m]
         self.ENGINEBREAKS = 150                  # Resitance based on velocity. An opposing force [N/(m/s)]
@@ -94,7 +94,7 @@ class MPC_Controller:
         v_dot = (F - self.ENGINEBREAKS * v)/self.MASS
         F_dot = 1/self.TAU * (-F + Throttle * self.THROTTLEGAIN)
         delta_d = delta_dot
-        delta_ddot = -self.FILTER1 * delta_dot - self.FILTER2 * (delta - Steering_target) 
+        delta_ddot = -2*self.ZETA*self.OMEGA * delta_dot - self.OMEGA**2 * (delta - Steering_target) 
 
         model.set_rhs('x_pos', x_dot)
         model.set_rhs('y_pos', y_dot)
@@ -208,7 +208,7 @@ class MPC_Controller:
         dt = time.time() - self.previous_time
         self.F_state += dt *( 1/self.TAU * (-self.F_state + self.throttle_state * self.THROTTLEGAIN))
         self.delta_state += dt*(self.delta_dot_state)
-        self.delta_dot_state += dt*(-self.FILTER1 * self.delta_dot_state - self.FILTER2 * (self.delta_state - self.steering_target_state))
+        self.delta_dot_state += dt*(-2*self.ZETA*self.OMEGA * delta_dot - self.OMEGA**2 * (self.delta_state - self.steering_target_state))
         self.previous_time = time.time()
 
         return [x, y, psi, v, self.F_state, self.delta_state, self.delta_dot_state]
