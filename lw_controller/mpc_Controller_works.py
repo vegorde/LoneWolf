@@ -12,8 +12,9 @@ class MPC_Controller:
         self.ZETA = 0.88                         # Still same filter, made to behave like a servo: Tune this with math if you're a nerd, else guess and check
         self.MASS = 375                          # Mass of LoneWolf [kg]
         self.L = 1.8                             # Lenght of wheelbase of LoneWolf [m]
-        self.ENGINEBREAKS = 150                  # Resitance based on velocity. An opposing force [N/(m/s)]
-        self.THROTTLEGAIN = 25                   # Tune throttlegain, enginebreaks, and tau to find an apropriate model with the same rise, steadystate, and fall based on experimental data
+        self.ENGINEBREAKS = 225                  # Resitance based on velocity. An opposing force [N/(m/s)]
+        self.THROTTLEGAIN = 35                  # Tune throttlegain, enginebreaks, and tau to find an apropriate model with the same rise, steadystate, and fall based on experimental data
+
 
         # States for state-estimator
         self.F_state = 0
@@ -22,7 +23,8 @@ class MPC_Controller:
         self.throttle_state = 0
         self.steering_target_state = 0
         self.physical_states = [0,0,0,0]
-
+        self.x = 0
+        self.y = 0
 
         # MPC Setup
         self.PREDICTION_HORIZON = 50         # PREDICTION_HORIZON * T_STEPS gives us the amount of seconds the mpc will look into the future when deciding control inputs: 
@@ -47,20 +49,20 @@ class MPC_Controller:
 
         # R matrix, punishments for change in input
         THROTTLE_WEIGHT = 0.001      
-        STEERING_TARGET_WEIGHT = 50 
+        STEERING_TARGET_WEIGHT = 20#50 
 
         # Input bounds
         THROTTLE_LOW = 0      
         THROTTLE_HIGH = 100
-        STEERING_LOW = -np.pi/180 * 25     # Limit for steering target
-        STEERING_HIGH = np.pi/180 * 25 
+        STEERING_LOW = -np.pi/180 * 45     # Limit for steering target
+        STEERING_HIGH = np.pi/180 * 45 
 
         # State bounds
-        V_LOW = 0                       # [m/s]  
-        V_HIGH = 30
+        V_LOW = 0                           # [m/s]  Actual top speed of real LoneWolf need to be here.
+        V_HIGH = 16.67
 
-        DELTA_LOW = -np.pi/180 * 25        # Limit for actual steering. Only difference between steering_target and delta is a second order lowpass filter made to behave like a servo
-        DELTA_HIGH = np.pi/180 * 25        # [rad]
+        DELTA_LOW = -np.pi/180 * 45        # Limit for actual steering. Only difference between steering_target and delta is a second order lowpass filter made to behave like a servo
+        DELTA_HIGH = np.pi/180 * 45        # [rad]
 
 
 
@@ -94,7 +96,7 @@ class MPC_Controller:
         v_dot = (F - self.ENGINEBREAKS * v)/self.MASS
         F_dot = 1/self.TAU * (-F + Throttle * self.THROTTLEGAIN)
         delta_d = delta_dot
-        delta_ddot = -2*self.ZETA*self.OMEGA * delta_dot - self.OMEGA**2 * (delta - Steering_target) 
+        delta_ddot = -2*self.ZETA*self.OMEGA * delta_dot - self.OMEGA**2 * (delta - Steering_target)  
 
         model.set_rhs('x_pos', x_dot)
         model.set_rhs('y_pos', y_dot)
@@ -107,21 +109,67 @@ class MPC_Controller:
         model.setup()
         # The model is now set up :)
         
+
         # Generating a reference to follow. The velocity is baked into this reference as it is a parametriciced x(t), y(t).
         # When we reach the end of the reference it currenly loops, when path planning is integrated the reference will have no end.
         self.xref_list = []
         self.yref_list = []
         N_STEPS = 500   # N_STEPS has to be changed in simulink aswell. Read more in LoneWolfparams.m
         for i in range(N_STEPS):
-            # Currently drawing an infinity symbol with height = a, and with = 2a
+            
+            """
+            # Sirkel ref
+            antall_runder = 5
+            rotasjon = (2*np.pi) * antall_runder /N_STEPS
+            radius = 15
+            self.xref_list.append(radius*np.cos(i*rotasjon))
+            self.yref_list.append(radius*np.sin(i*rotasjon)) 
+            """
+            
+            # Infinity ref
+            # Drawing an infinity symbol with height = a, and with = 2a
             # Also calculating time and changing the timescale to be from [0,50] to [0,2pi] so the drawing works
+            
             t = i * self.T_STEPS
-            t = t * (2*np.pi) / (N_STEPS * self.T_STEPS)
-            a = 30
+            repetitions = 1
+            t = t * (2*np.pi) * repetitions / (N_STEPS * self.T_STEPS)
+            a = 20
             self.xref_list.append(a * np.sin(t))
             self.yref_list.append(a/2 * np.sin(2*t))
-        
-        
+            
+            """
+            # Penis ref :)
+            t = i * self.T_STEPS
+            if t < 20:
+                # Infinity symbol
+                t = t * (2*np.pi) * 50/19 / (N_STEPS * self.T_STEPS)
+                a = 30
+                self.xref_list.append(a * np.sin(t))
+                self.yref_list.append(a/2 * np.sin(2*t))
+            elif t < 30:
+                #Linje
+                t = t - 20
+                self.xref_list.append(10.0)
+                self.yref_list.append(10 + 10*t)
+            elif t < 40:
+                # Sirkel
+                t = (t - 30)
+                r = 10
+                w = (3*np.pi)/10 
+                self.xref_list.append(r*np.cos(t*w))
+                self.yref_list.append(110 + r*np.sin(t*w))
+            elif t <= 49:
+                # Linje
+                t = t - 40
+                self.xref_list.append(-10.0)
+                self.yref_list.append(110 - 100/9*t)
+            elif t <= 50:
+                # Linje
+                t = t - 49
+                self.xref_list.append(-10.0 + 10*t)
+                self.yref_list.append(10.0 - 10*t)
+        """
+
         # Setting up an mpc object
         self.mpc = do_mpc.controller.MPC(model)
         
@@ -173,14 +221,29 @@ class MPC_Controller:
         self.mpc.bounds['lower','_u', 'Steering_target'] = STEERING_LOW
         self.mpc.bounds['upper','_u', 'Steering_target'] = STEERING_HIGH
 
+        def find_closest_point_on_path(self, current_index):
+            # This function finds the closest point of the path and returns the index of this point.
+            # Create an array of differences between reference points and the current point
+            vekting = 0.1 # større tall er mere vekting av tid, mindre av distanse :) 2 tilsvarer 20m/1s
+                          # Lavere tall føler til bedre linjefølging. men ikke følging avpungt som beveger seg i tid
+
+            distances = []
+            for i in range(current_index + 1): # Sjekke nermeste pungtet på referanselinen som ikke er forran der vi er nå :)
+                distances.append(np.sqrt((self.x - self.xref_list[i])**2 + (self.y - self.yref_list[i])**2) + vekting * np.abs(i - current_index)) # nermest i tid og distanse :)
+            nearest_index = np.argmin(distances) 
+            
+            
+            return nearest_index
 
         # Used in the MPC to see what the reference is in the future
         def tvp_fun(t_now):
             step = int(t_now // self.T_STEPS)                 # Calculate the current index based on the current time and the time step size.
             tvp_template = self.mpc.get_tvp_template()        # Initialize the tvp_template with the correct structure provided by do_mpc.
 
+
+            closest_point_index = find_closest_point_on_path(self, step%N_STEPS)
             for k in range(self.PREDICTION_HORIZON):          # Loop over the prediction horizon.
-                ref_index = (step + k) % len(self.xref_list)  # Index for the reference lists. Use modulo to cycle the references if the end is reached.
+                ref_index = (closest_point_index + k) % len(self.xref_list)  # Index for the reference lists. Use modulo to cycle the references if the end is reached.
 
                 # Set the TVP for the current step in the horizon.
                 tvp_template['_tvp', k, 'x_ref'] = self.xref_list[ref_index]
@@ -204,14 +267,14 @@ class MPC_Controller:
 
     # This function is a helper-function that takes in the 4 measured states, and using this to estimate the internal states
     def state_estimator(self, physical_states):
-        x, y, psi, v = physical_states
+        self.x, self.y, psi, v = physical_states
         dt = time.time() - self.previous_time
         self.F_state += dt *( 1/self.TAU * (-self.F_state + self.throttle_state * self.THROTTLEGAIN))
         self.delta_state += dt*(self.delta_dot_state)
-        self.delta_dot_state += dt*(-2*self.ZETA*self.OMEGA * delta_dot - self.OMEGA**2 * (self.delta_state - self.steering_target_state))
+        self.delta_dot_state += dt*(-2*self.ZETA*self.OMEGA * self.delta_dot_state - self.OMEGA**2 * (self.delta_state - self.steering_target_state))
         self.previous_time = time.time()
 
-        return [x, y, psi, v, self.F_state, self.delta_state, self.delta_dot_state]
+        return [self.x, self.y, psi, v, self.F_state, self.delta_state, self.delta_dot_state]
 
 
 
@@ -222,7 +285,7 @@ class MPC_Controller:
 
         self.throttle_state = float(u[0])
         self.steering_target_state = float(u[1])
-        self.time_step += 1                                          # Current time_step is sent to the node_script and published to simulink to know what reference is sent over time.
+        self.time_step += 1                                           # Current time_step is sent to the node_script and published to simulink to know what reference is sent over time.
         return [u[0], (u[1]), self.time_step]
 
-        
+    
