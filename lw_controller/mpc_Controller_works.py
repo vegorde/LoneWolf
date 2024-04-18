@@ -116,7 +116,7 @@ class MPC_Controller:
         self.yref_list = []
         N_STEPS = 500   # N_STEPS has to be changed in simulink aswell. Read more in LoneWolfparams.m
         for i in range(N_STEPS):
-            
+            #ctrl + shift + a || block comment vscode
             """
             # Sirkel ref
             antall_runder = 5
@@ -263,7 +263,7 @@ class MPC_Controller:
 
         self.previous_time = time.time()
         self.time_step = 0
-
+        #self.mpc.settings.supress_ipopt_output() # Silence IPOPT that spams the terminal: might still be usefull to check once in a while if the solutions are optiomal or cpu timeout
 
     # This function is a helper-function that takes in the 4 measured states, and using this to estimate the internal states
     def state_estimator(self, physical_states):
