@@ -43,8 +43,12 @@ class mpc_ros_controller(Node):
       msg_y_ref = Float64MultiArray()
       msg_x_ref.data = self.mpc.xref_list
       msg_y_ref.data = self.mpc.yref_list
-      x_ref_publish_.publish(msg_x_ref)
-      y_ref_publish_.publish(msg_y_ref)
+      
+      import time
+      for _ in range(10):
+         x_ref_publish_.publish(msg_x_ref)
+         y_ref_publish_.publish(msg_y_ref)
+         time.sleep(0.1)
 
       # Creating a spin node that uses our states to generate controller outputs and publishes these to ROS2
       self.publisher_spin_ = self.create_timer(sampletime, self.generate_and_publish_inputs)
@@ -80,7 +84,7 @@ class mpc_ros_controller(Node):
       msg_u2.data = 0                                         # Currently not using brake as a control input
       msg_u3.data = int(u_steering*1000)                      # Since steering is in rad currently and we send ints. we scale this up before sending, then scale it down upon reciving
       msg_timestep.data = time_step
-
+   
       self.get_logger().info("Sending inputs")
       self.u1_publish_.publish(msg_u1)
       self.u2_publish_.publish(msg_u2)
