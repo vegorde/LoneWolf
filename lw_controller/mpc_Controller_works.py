@@ -88,6 +88,7 @@ class MPC_Controller:
         # Setting control input variablers
         Throttle = model.set_variable(var_type='_u', var_name='Throttle')
         Steering_target = model.set_variable(var_type='_u', var_name='Steering_target')
+        
 
         # State-space model of LoneWolf
         x_dot = v*np.cos(psi)
@@ -116,12 +117,11 @@ class MPC_Controller:
         self.yref_list = []
         N_STEPS = 500   # N_STEPS has to be changed in simulink aswell. Read more in LoneWolfparams.m
         for i in range(N_STEPS):
-            #ctrl + shift + a || block comment vscode
             """
             # Sirkel ref
-            antall_runder = 5
+            antall_runder = 1
             rotasjon = (2*np.pi) * antall_runder /N_STEPS
-            radius = 15
+            radius = 30
             self.xref_list.append(radius*np.cos(i*rotasjon))
             self.yref_list.append(radius*np.sin(i*rotasjon)) 
             """
@@ -129,15 +129,16 @@ class MPC_Controller:
             # Infinity ref
             # Drawing an infinity symbol with height = a, and with = 2a
             # Also calculating time and changing the timescale to be from [0,50] to [0,2pi] so the drawing works
-            
+            """     
             t = i * self.T_STEPS
-            repetitions = 1
+            repetitions = 2
             t = t * (2*np.pi) * repetitions / (N_STEPS * self.T_STEPS)
-            a = 20
+            a = 50
             self.xref_list.append(a * np.sin(t))
-            self.yref_list.append(a/2 * np.sin(2*t))
-            
+            self.yref_list.append(a/2 * np.sin(2*t)) 
             """
+            
+            
             # Penis ref :)
             t = i * self.T_STEPS
             if t < 20:
@@ -168,7 +169,9 @@ class MPC_Controller:
                 t = t - 49
                 self.xref_list.append(-10.0 + 10*t)
                 self.yref_list.append(10.0 - 10*t)
-        """
+        
+        self.xref_list_exstended = self.xref_list * 10
+        self.yref_list_exstended = self.yref_list * 10
 
         # Setting up an mpc object
         self.mpc = do_mpc.controller.MPC(model)
@@ -195,6 +198,7 @@ class MPC_Controller:
 
         # lterm is the objective function. What we are trying to minimize using the MPC
         lterm = (X_WEIGHT * (x_pos-x_ref)**2 + Y_WEIGHT * (y_pos-y_ref)**2)
+        # lterm = (X_WEIGHT * np.abs((x_pos-x_ref)) + Y_WEIGHT * np.abs((y_pos-y_ref)))
         mterm = lterm*0   #This is the most scuffed way to say 0. I want it to be zero, as the mayer term focuses on final state, and there is no meaningfull final state
 
         self.mpc.set_objective(mterm=mterm, lterm=lterm)
@@ -229,9 +233,8 @@ class MPC_Controller:
 
             distances = []
             for i in range(current_index + 1): # Sjekke nermeste pungtet på referanselinen som ikke er forran der vi er nå :)
-                distances.append(np.sqrt((self.x - self.xref_list[i])**2 + (self.y - self.yref_list[i])**2) + vekting * np.abs(i - current_index)) # nermest i tid og distanse :)
+                distances.append(np.sqrt((self.x - self.xref_list_exstended[i])**2 + (self.y - self.yref_list_exstended[i])**2) + vekting * np.abs(i - current_index)) # nermest i tid og distanse :)
             nearest_index = np.argmin(distances) 
-            
             
             return nearest_index
 
@@ -241,7 +244,7 @@ class MPC_Controller:
             tvp_template = self.mpc.get_tvp_template()        # Initialize the tvp_template with the correct structure provided by do_mpc.
 
 
-            closest_point_index = find_closest_point_on_path(self, step%N_STEPS)
+            closest_point_index = find_closest_point_on_path(self, step%(N_STEPS*10))
             for k in range(self.PREDICTION_HORIZON):          # Loop over the prediction horizon.
                 ref_index = (closest_point_index + k) % len(self.xref_list)  # Index for the reference lists. Use modulo to cycle the references if the end is reached.
 
@@ -263,7 +266,7 @@ class MPC_Controller:
 
         self.previous_time = time.time()
         self.time_step = 0
-        #self.mpc.settings.supress_ipopt_output() # Silence IPOPT that spams the terminal: might still be usefull to check once in a while if the solutions are optiomal or cpu timeout
+
 
     # This function is a helper-function that takes in the 4 measured states, and using this to estimate the internal states
     def state_estimator(self, physical_states):
