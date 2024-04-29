@@ -6,7 +6,9 @@ from geometry_msgs.msg import TwistWithCovarianceStamped, PoseWithCovarianceStam
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Int64, Float64MultiArray
 import numpy as np
-from mpc_jorgen import MPC_Controller           # Coustom class
+# from mpc_jorgen import MPC_Controller           # Coustom class
+# from mpc_jorgen_linearized import MPC_Controller
+from mpc_jorgen_ipopt import MPC_Controller
    
 
 class mpc_ros_controller(Node):
@@ -50,8 +52,8 @@ class mpc_ros_controller(Node):
             a = 50
             self.xref_list.append(a * np.sin(t))
             self.yref_list.append(a/2 * np.sin(2*t))
-            #self.xref_list.append(t*10)
-            #self.yref_list.append(t*10)
+            # self.xref_list.append(t*20/3.6)
+            # self.yref_list.append(0.0)
 
         # Since the x and y ref are [currently] complete pre generated lists that do not change we only need to publish this once, so all the publish logic is in __init__
         x_ref_publish_ = self.create_publisher(Float64MultiArray, '/xref', 10)
@@ -95,7 +97,11 @@ class mpc_ros_controller(Node):
             i = i%500
             xref_n.append(self.xref_list[i])
             yref_n.append(self.yref_list[i])
-        u_t = self.mpc.MPC_estimate_control_input(physical_states, xref_n, yref_n)            # Calculated internal states + mesured states used to calculate a control input
+        for _ in range(1):
+            print(start_index)    
+            print(xref_n[0])
+            print(yref_n[0])
+        u_t = self.mpc.mpc_generate_step(physical_states, xref_n, yref_n)            # Calculated internal states + mesured states used to calculate a control input
         u_throttle = float(u_t[0])
         u_steering = float(u_t[1])
         self.time_step = int(u_t[2])
