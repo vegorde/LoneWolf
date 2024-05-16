@@ -36,6 +36,7 @@ class MPC_Controller:
         self.index = 0
 
 
+        #MPC tuning matrices
         self.Q = ca.DM([[1, 0, 0, 0],
                         [0, 1, 0, 0],
                         [0, 0, 0, 0],
@@ -60,7 +61,7 @@ class MPC_Controller:
         self.u2 = ca.SX.sym('u2', self.N)
 
 
-        
+        #Declearing variables for discrete dynamic model
         self.decision_vars = ca.vertcat(
             self.x,
             self.y,
@@ -73,7 +74,7 @@ class MPC_Controller:
             self.u2
         )
 
-
+        
         self.lbx = ca.DM(np.full(self.decision_vars.size1(), -np.inf))  # Create a numpy array of -inf and convert to D       M
         self.ubx = ca.DM(np.full(self.decision_vars.size1(), np.inf))   # Create a numpy array of inf and convert to DM       
 
@@ -105,13 +106,13 @@ class MPC_Controller:
 
 
 
-
+    
     def mpc_generate_step(self, physical_states, reference_list_x, reference_list_y):
         cost = 0
         g = []
         
 
-
+        #Creating initial states for prediction
         x_init, y_init, psi_init, v_init, F_init, delta_init, delta_dot_init = self.state_estimator(physical_states)
 
         # Initialize the initial condition vector
@@ -185,7 +186,7 @@ class MPC_Controller:
         solver = ca.nlpsol('solver', 'ipopt', nlp, {'ipopt': ipopt_options})
 
 
-
+        #Solving the optimization problem
         sol = solver(x0=initial_conditions, lbx=self.lbx, ubx=self.ubx, lbg=0, ubg=0)
 
         optimized_u1_first = sol['x'][self.u1_start_index]
@@ -194,7 +195,7 @@ class MPC_Controller:
         self.throttle_state = optimized_u1_first
         self.steering_state = optimized_u2_first
 
-
+        
         self.index += 1
         control_input_arr = [optimized_u1_first, optimized_u2_first, self.index]
 
