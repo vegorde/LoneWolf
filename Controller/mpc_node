@@ -44,6 +44,8 @@ class mpc_ros_controller(Node):
         self.time_step = 0
         self.timestep = 0
 
+
+        
         ref_mode = ["figure8+Sylinder", "circle", "figure8", "line_with_bend", "straight_line", "racetrack", "austriaGP", "sus", "<3"]
         self.xref_list, self.yref_list = pathplanning.make_path(reftype="line_with_bend", line_velocity_kmh=30, line_angle_deg=45)
 
@@ -69,6 +71,7 @@ class mpc_ros_controller(Node):
 
 
     
+    #Callback functions for updating states 
 
     def update_states_xy(self, msg): 
         self.x = msg.latitude
@@ -97,7 +100,7 @@ class mpc_ros_controller(Node):
         u_steering = float(u_t[1])
         self.time_step = int(u_t[2])
 
-
+        #Set variable types
         msg_u1 = Int64()                                        # Throttle
         msg_u2 = Int64()                                        # Brake
         msg_u3 = Int64()                                        # Steering
